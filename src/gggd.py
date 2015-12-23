@@ -39,9 +39,11 @@ TESTRUN = 0
 PROFILE = 0
 
 class LynxFetcher(object):
-    def __init__(self, lynx_cfg=None, lynx_cookie_file=None):
+    def __init__(self, lynx_cfg=None, lynx_cookie_file=None, cmd_log=None, cmd_script=None):
         self.lynx_cfg = lynx_cfg
         self.lynx_cookie_file = lynx_cookie_file
+        self.cmd_log = cmd_log
+        self.cmd_script = cmd_script
 
     def default_params(self):
         args = []
@@ -54,6 +56,12 @@ class LynxFetcher(object):
                 "-cookie_save_file=%s" % self.lynx_cookie_file,
                 "-cookies+"
             ])
+        if self.cmd_log:
+            args.append( "-cmd_log=" + self.cmd_log )
+
+        if self.cmd_script:
+            args.append( "-cmd_script=" + self.cmd_script )
+
         return args
 
     def fetch(self, url, list_only=False, source=False, header=False, stderr=False):
@@ -321,11 +329,13 @@ class GroupInformation(object):
 
         self.fetch_content()
 
-    def login(self):
-        print """Please log in to your Google groups account (navigate the form fields with up
-and down arrows, submit form with Enter) and then exit the browser (using the 'q' key).
-Press Enter to continue."""
-        sys.stdin.readline()
+    def login(self, automated=None):
+        if not automated:
+            print """Please log in to your Google groups account (navigate the form fields with up
+    and down arrows, submit form with Enter) and then exit the browser (using the 'q' key).
+    Press Enter to continue."""
+            sys.stdin.readline()
+
         self.fetcher.interactive( "https://www.google.com/a/UniversalLogin?continue=https://groups.google.com%s/forum/&service=groups2&hd=default" % self.org_path)
 
 
@@ -381,6 +391,8 @@ USAGE
         parser.add_argument("-U", "--update-count", help="Number of messages to request in RSS for --update mode, default: 50", default=None, type=int)
         parser.add_argument("-d", "--demangle", action="store_true", help="Demangle message contents before writing")
         parser.add_argument("-o", "--organization", help="Use only if the Google Group is nested under an organization, eg 'w3c.org'")
+        parser.add_argument("-x", "--cmd-log", help="log keystroke commands to the given file")
+        parser.add_argument("-y", "--cmd-script", help="read keystroke commands from the given file")
         parser.add_argument(dest="group", help="Name of the Google Group to fetch", metavar="group")
 
         # Process arguments
@@ -401,6 +413,8 @@ USAGE
         organization = args.organization
         verbose = args.verbose
         batch_mode = args.batch_mode
+        cmd_log = args.cmd_log
+        cmd_script = args.cmd_script
 
         lynx_cfg = args.lynx_cfg
         lynx_cookie_file = args.lynx_cookie_file
@@ -414,7 +428,7 @@ USAGE
             if verbose: print "%s: does not exist, not using LYNX_CFG" % lynx_cfg
             lynx_cfg = None
 
-        fetcher = LynxFetcher(lynx_cfg, lynx_cookie_file)
+        fetcher = LynxFetcher(lynx_cfg, lynx_cookie_file, cmd_log, cmd_script)
 
         if not fetcher.has_cookies():
             if args.login:
@@ -428,7 +442,7 @@ USAGE
             group_information = GroupInformation(fetcher, group, organization)
 
             if args.login:
-                group_information.login()
+                group_information.login( bool(cmd_script) )
 
             if args.login_only:
                 return 0
